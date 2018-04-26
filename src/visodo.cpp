@@ -1,28 +1,4 @@
-/*
 
-The MIT License
-
-Copyright (c) 2015 Avi Singh
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-*/
 
 #include "vo_features.h"
 
@@ -30,7 +6,22 @@ using namespace cv;
 using namespace std;
 
 #define MAX_FRAME 1000
-#define MIN_NUM_FEAT 2000
+#define MIN_NUM_FEAT 2
+
+/******************************************************************************/
+// setup the cameras properly based on OS platform
+
+// 0 in linux gives first camera for v4l
+//-1 in windows gives first device or user dialog selection
+
+#ifdef linux
+#define CAMERA_INDEX  1
+#else
+#define CAMERA_INDEX -1
+#endif
+
+/******************************************************************************/
+
 
 // IMP: Change the file directories (4 places) according to where your dataset is saved before running!
 
@@ -73,6 +64,21 @@ double getAbsoluteScale(int frame_id, int sequence_id, double z_cal)	{
 
 int main( int argc, char** argv )	{
 
+
+    VideoCapture cap; // capture object
+
+
+    if(
+            ( argc == 2 && (cap.open(argv[1]) == true )) ||
+            ( argc != 2 && (cap.open(CAMERA_INDEX) == true))
+            )
+
+
+
+        if (!cap.isOpened()) { //check if video device has been initialised
+            cout << "cannot open camera";
+        }
+
   Mat img_1, img_2;
   Mat R_f, t_f; //the final rotation and tranlation vectors containing the 
 
@@ -80,10 +86,7 @@ int main( int argc, char** argv )	{
   myfile.open ("results1_1.txt");
 
   double scale = 1.00;
-  char filename1[200];
-  char filename2[200];
-  sprintf(filename1, "/home/avisingh/Datasets/KITTI_VO/00/image_2/%06d.png", 0);
-  sprintf(filename2, "/home/avisingh/Datasets/KITTI_VO/00/image_2/%06d.png", 1);
+
 
   char text[100];
   int fontFace = FONT_HERSHEY_PLAIN;
@@ -92,8 +95,10 @@ int main( int argc, char** argv )	{
   cv::Point textOrg(10, 50);
 
   //read the first two frames from the dataset
-  Mat img_1_c = imread(filename1);
-  Mat img_2_c = imread(filename2);
+  Mat img_1_c;
+  cap.read(img_1_c);
+  Mat img_2_c;
+  cap.read(img_2_c);
 
   if ( !img_1_c.data || !img_2_c.data ) { 
     std::cout<< " --(!) Error reading images " << std::endl; return -1;
@@ -136,10 +141,9 @@ int main( int argc, char** argv )	{
   Mat traj = Mat::zeros(600, 600, CV_8UC3);
 
   for(int numFrame=2; numFrame < MAX_FRAME; numFrame++)	{
-  	sprintf(filename, "/home/avisingh/Datasets/KITTI_VO/00/image_2/%06d.png", numFrame);
-    //cout << numFrame << endl;
-  	Mat currImage_c = imread(filename);
-  	cvtColor(currImage_c, currImage, COLOR_BGR2GRAY);
+  	Mat currImage_c ;
+    cap.read(currImage_c);
+    cvtColor(currImage_c, currImage, COLOR_BGR2GRAY);
   	vector<uchar> status;
   	featureTracking(prevImage, currImage, prevFeatures, currFeatures, status);
 
@@ -158,8 +162,8 @@ int main( int argc, char** argv )	{
     }
 
   	scale = getAbsoluteScale(numFrame, 0, t.at<double>(2));
-
-    //cout << "Scale is " << scale << endl;
+    scale =1;	
+    cout << "Scale is " << scale << endl;
 
     if ((scale>0.1)&&(t.at<double>(2) > t.at<double>(0)) && (t.at<double>(2) > t.at<double>(1))) {
 
@@ -177,7 +181,7 @@ int main( int argc, char** argv )	{
 
   // a redetection is triggered in case the number of feautres being trakced go below a particular threshold
  	  if (prevFeatures.size() < MIN_NUM_FEAT)	{
-      //cout << "Number of tracked features reduced to " << prevFeatures.size() << endl;
+      cout << "Number of tracked features reduced to " << prevFeatures.size() << endl;
       //cout << "trigerring redection" << endl;
  		  featureDetection(prevImage, prevFeatures);
       featureTracking(prevImage,currImage,prevFeatures,currFeatures, status);
@@ -199,6 +203,7 @@ int main( int argc, char** argv )	{
     imshow( "Trajectory", traj );
 
     waitKey(1);
+
 
   }
 
