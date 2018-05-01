@@ -6,7 +6,7 @@ using namespace cv;
 using namespace std;
 
 #define MAX_FRAME 1000
-#define MIN_NUM_FEAT 2
+#define MIN_NUM_FEAT 50
 
 /******************************************************************************/
 // setup the cameras properly based on OS platform
@@ -15,7 +15,7 @@ using namespace std;
 //-1 in windows gives first device or user dialog selection
 
 #ifdef linux
-#define CAMERA_INDEX  1
+#define CAMERA_INDEX  0
 #else
 #define CAMERA_INDEX -1
 #endif
@@ -161,8 +161,9 @@ int main( int argc, char** argv )	{
   		currPts.at<double>(1,i) = currFeatures.at(i).y;
     }
 
-  	scale = getAbsoluteScale(numFrame, 0, t.at<double>(2));
-    scale =1;	
+  	//scale = getAbsoluteScale(numFrame, 0, t.at<double>(2));
+   scale = 2;
+
     cout << "Scale is " << scale << endl;
 
     if ((scale>0.1)&&(t.at<double>(2) > t.at<double>(0)) && (t.at<double>(2) > t.at<double>(1))) {
