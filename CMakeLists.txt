@@ -5,8 +5,8 @@ find_package( OpenCV 3.0 REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 
 file(GLOB viso
-    "src/*.h"
-    "src/*.cpp"
+    "src/visodo.h"
+    "src/visodo_video.cpp"
 )
-add_executable( vo ${viso} )
-target_link_libraries( vo ${OpenCV_LIBS} )
+add_executable( vo_video ${viso} )
+target_link_libraries( vo_video ${OpenCV_LIBS} )

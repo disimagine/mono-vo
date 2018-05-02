@@ -5,8 +5,9 @@
 using namespace cv;
 using namespace std;
 
-#define MAX_FRAME 1000
-#define MIN_NUM_FEAT 50
+#define MAX_FRAME 4500
+#define MIN_NUM_FEAT 200
+
 
 /******************************************************************************/
 // setup the cameras properly based on OS platform
@@ -80,6 +81,7 @@ int main( int argc, char** argv )	{
         }
 
   Mat img_1, img_2;
+  Mat img_1_crop, img_2_crop;
   Mat R_f, t_f; //the final rotation and tranlation vectors containing the 
 
   ofstream myfile;
@@ -93,6 +95,8 @@ int main( int argc, char** argv )	{
   double fontScale = 1;
   int thickness = 1;  
   cv::Point textOrg(10, 50);
+  
+  int width, height;
 
   //read the first two frames from the dataset
   Mat img_1_c;
@@ -104,15 +108,26 @@ int main( int argc, char** argv )	{
     std::cout<< " --(!) Error reading images " << std::endl; return -1;
   }
 
+ 
   // we work with grayscale images
   cvtColor(img_1_c, img_1, COLOR_BGR2GRAY);
   cvtColor(img_2_c, img_2, COLOR_BGR2GRAY);
+  
+  /// --  get width and height of frame
+  width = img_1.cols;
+  height = img_1.rows;
+  
+  /// -- define ROI
+  cv::Rect myROI(int(width/3), int(height/4), int(width/3), int(height/2));
+  /// -- crop ROI
+  img_1_crop = img_1(myROI);
+  img_2_crop = img_2(myROI);
 
   // feature detection, tracking
   vector<Point2f> points1, points2;        //vectors to store the coordinates of the feature points
-  featureDetection(img_1, points1);        //detect features in img_1
+  featureDetection(img_1_crop, points1);        //detect features in img_1
   vector<uchar> status;
-  featureTracking(img_1,img_2,points1,points2, status); //track those features to img_2
+  featureTracking(img_1_crop,img_2_crop,points1,points2, status); //track those features to img_2
 
   //TODO: add a fucntion to load these values directly from KITTI's calib files
   // WARNING: different sequences in the KITTI VO dataset have different intrinsic/extrinsic parameters
@@ -123,8 +138,9 @@ int main( int argc, char** argv )	{
   E = findEssentialMat(points2, points1, focal, pp, RANSAC, 0.999, 1.0, mask);
   recoverPose(E, points2, points1, R, t, focal, pp, mask);
 
-  Mat prevImage = img_2;
+  Mat prevImage_crop = img_2_crop;
   Mat currImage;
+  Mat currImage_crop;
   vector<Point2f> prevFeatures = points2;
   vector<Point2f> currFeatures;
 
@@ -144,8 +160,9 @@ int main( int argc, char** argv )	{
   	Mat currImage_c ;
     cap.read(currImage_c);
     cvtColor(currImage_c, currImage, COLOR_BGR2GRAY);
+    currImage_crop = currImage(myROI);
   	vector<uchar> status;
-  	featureTracking(prevImage, currImage, prevFeatures, currFeatures, status);
+  	featureTracking(prevImage_crop, currImage_crop, prevFeatures, currFeatures, status);
 
   	E = findEssentialMat(currFeatures, prevFeatures, focal, pp, RANSAC, 0.999, 1.0, mask);
   	recoverPose(E, currFeatures, prevFeatures, R, t, focal, pp, mask);
@@ -162,7 +179,7 @@ int main( int argc, char** argv )	{
     }
 
   	//scale = getAbsoluteScale(numFrame, 0, t.at<double>(2));
-   scale = 2;
+   scale = 1;
 
     cout << "Scale is " << scale << endl;
 
@@ -184,12 +201,12 @@ int main( int argc, char** argv )	{
  	  if (prevFeatures.size() < MIN_NUM_FEAT)	{
       cout << "Number of tracked features reduced to " << prevFeatures.size() << endl;
       //cout << "trigerring redection" << endl;
- 		  featureDetection(prevImage, prevFeatures);
-      featureTracking(prevImage,currImage,prevFeatures,currFeatures, status);
+ 		  featureDetection(prevImage_crop, prevFeatures);
+      featureTracking(prevImage_crop,currImage_crop,prevFeatures,currFeatures, status);
 
  	  }
 
-    prevImage = currImage.clone();
+    prevImage_crop = currImage_crop.clone();
     prevFeatures = currFeatures;
 
     int x = int(t_f.at<double>(0)) + 300;
@@ -200,14 +217,15 @@ int main( int argc, char** argv )	{
     sprintf(text, "Coordinates: x = %02fm y = %02fm z = %02fm", t_f.at<double>(0), t_f.at<double>(1), t_f.at<double>(2));
     putText(traj, text, textOrg, fontFace, fontScale, Scalar::all(255), thickness, 8);
 
-    imshow( "Road facing camera", currImage_c );
+    imshow( "Road facing camera", currImage_c(myROI) );
     imshow( "Trajectory", traj );
 
     waitKey(1);
 
 
   }
-
+  imwrite("traj.jpg", traj);
+  cout << "Save trajectory." << endl;
   clock_t end = clock();
   double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
   cout << "Total time taken: " << elapsed_secs << "s" << endl;
@@ -217,3 +235,4 @@ int main( int argc, char** argv )	{
 
   return 0;
 }
+
